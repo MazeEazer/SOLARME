@@ -69,10 +69,9 @@ export default function BiohacksPage() {
     }
     load()
   }, [userId])
-
-  const toggleHack = async (id) => {
-    setHacks((prev) =>
-      prev.map((h) => {
+  const toggleHack = (id) => {
+    setHacks((prev) => {
+      const updatedHacks = prev.map((h) => {
         if (h.id === id) {
           const updated = { ...h, tracked: !h.tracked }
           setToast(
@@ -85,12 +84,11 @@ export default function BiohacksPage() {
         }
         return h
       })
-    )
 
-    // Сохраняем изменения в облаке
-    setTimeout(async () => {
-      await saveUserData(userId, "trackedHacks", hacks)
-    }, 500)
+      // Сохраняем сразу после обновления состояния
+      saveUserData(userId, "trackedHacks", updatedHacks).catch(console.error)
+      return updatedHacks
+    })
   }
 
   return (

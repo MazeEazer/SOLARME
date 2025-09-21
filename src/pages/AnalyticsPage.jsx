@@ -1,5 +1,8 @@
 // AnalyticsPage.jsx
 import { useState, useMemo } from "react"
+import { useUserId } from "../App.jsx"
+import { loadUserData } from "../utils/cloudStorage.js"
+
 import {
   LineChart,
   Line,
@@ -14,17 +17,28 @@ import {
 } from "recharts"
 
 export default function AnalyticsPage() {
+  const userId = useUserId()
+  const [hacksList, setHacksList] = useState([])
+  const [allData, setAllData] = useState([])
+
   const hacksList = JSON.parse(localStorage.getItem("trackedHacks") || "[]")
   const [period, setPeriod] = useState("week")
 
   // Загружаем ВСЕ реальные данные
-  const allData = useMemo(() => {
-    const saved = JSON.parse(localStorage.getItem("trackerData") || "[]")
-    // Фильтруем только записи с валидной датой
-    return saved
-      .filter((item) => item.date && !isNaN(new Date(item.date).getTime()))
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
-  }, [])
+  useEffect(() => {
+    const load = async () => {
+      if (!userId) return
+      const loadedHacks = (await loadUserData(userId, "trackedHacks")) || []
+      const loadedData = (await loadUserData(userId, "trackerData")) || []
+      setHacksList(loadedHacks)
+      setAllData(
+        loadedData
+          .filter((item) => item.date && !isNaN(new Date(item.date).getTime()))
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+      )
+    }
+    load()
+  }, [userId])
 
   // Фильтруем данные по периоду — сохраняем date для всех
   const data = useMemo(() => {

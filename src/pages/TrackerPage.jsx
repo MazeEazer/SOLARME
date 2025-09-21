@@ -5,28 +5,37 @@ import SaveButton from "../components/Tracker/SaveButton.jsx"
 import { useUserId } from "../App.jsx"
 import { loadUserData, saveUserData } from "../utils/cloudStorage.js"
 export default function TrackerPage() {
-  const userId = useUserId()
-
   // Используем ISO string для даты
   const today = useMemo(() => {
     return new Date().toISOString().split("T")[0] // YYYY-MM-DD
   }, [])
 
   // Загружаем биохаки из localStorage или используем дефолтные
-  const [hacksList, setHacksList] = useState(() => {
-    const saved = localStorage.getItem("trackedHacks")
-    if (saved) return JSON.parse(saved)
-    return [
-      { id: 1, title: "Прогулка на свежем воздухе", tracked: false },
-      { id: 2, title: "Вода после пробуждения", tracked: false },
-      { id: 3, title: "Зарядка утром", tracked: false },
-      { id: 4, title: "Контрастный душ", tracked: false },
-      { id: 5, title: "1 час без телефона", tracked: false },
-      { id: 6, title: "Интервальное голодание 16/8", tracked: false },
-      { id: 7, title: "Без синего света вечером", tracked: false },
-    ]
-  })
+  const [hacksList, setHacksList] = useState([])
+  const userId = useUserId()
 
+  useEffect(() => {
+    const load = async () => {
+      if (!userId) return
+      const saved = await loadUserData(userId, "trackedHacks")
+      if (saved) {
+        setHacksList(saved)
+      } else {
+        const defaultHacks = [
+          { id: 1, title: "Прогулка на свежем воздухе", tracked: false },
+          { id: 2, title: "Вода после пробуждения", tracked: false },
+          { id: 3, title: "Зарядка утром", tracked: false },
+          { id: 4, title: "Контрастный душ", tracked: false },
+          { id: 5, title: "1 час без телефона", tracked: false },
+          { id: 6, title: "Интервальное голодание 16/8", tracked: false },
+          { id: 7, title: "Без синего света вечером", tracked: false },
+        ]
+        setHacksList(defaultHacks)
+        await saveUserData(userId, "trackedHacks", defaultHacks)
+      }
+    }
+    load()
+  }, [userId])
   const [form, setForm] = useState({
     mood: 5,
     work: "0",
