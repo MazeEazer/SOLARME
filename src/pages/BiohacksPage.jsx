@@ -7,69 +7,29 @@ export default function BiohacksPage() {
 
   // Загружаем из localStorage
   useEffect(() => {
-    const saved = localStorage.getItem("trackedHacks")
-    if (saved) {
-      setHacks(JSON.parse(saved))
-    } else {
-      const defaultHacks = [
-        {
-          id: 1,
-          title: "Прогулка на свежем воздухе",
-          desc: "Естественный свет обязательно должен присутствовать в нашей жизни.",
-          tracked: false,
-        },
-        {
-          id: 2,
-          title: "Вода после пробуждения",
-          desc: "Стакан воды для гидратации и метаболизма.",
-          tracked: false,
-        },
-        {
-          id: 3,
-          title: "Зарядка утром",
-          desc: "Движение и запуск организма",
-          tracked: false,
-        },
-        {
-          id: 4,
-          title: "Контрастный душ",
-          desc: "Тренировка сосудов и пробуждение за счет смены температур.",
-          tracked: false,
-        },
-        {
-          id: 5,
-          title: "1 час в день без телефона",
-          desc: "Снижение нагрузки на глаза и нервную систему.",
-          tracked: false,
-        },
-        {
-          id: 6,
-          title: "Интервальное голодание 16/8",
-          desc: "Соблюдение окна для приема пищи для улучшения метаболизма и аутофагии.",
-          tracked: false,
-        },
-        {
-          id: 7,
-          title: "Без синего света вечером",
-          desc: "Использование режима Night Shift и отказ от гаджетов перед сном для улучшения качества сна.",
-          tracked: false,
-        },
-      ]
-      setHacks(defaultHacks)
-      localStorage.setItem("trackedHacks", JSON.stringify(defaultHacks))
+    const load = async () => {
+      const saved = await loadUserData(userId, "trackedHacks")
+      if (saved) {
+        setHacks(saved)
+      } else {
+        const defaultHacks = [
+          /* твой массив */
+        ]
+        setHacks(defaultHacks)
+        await saveUserData(userId, "trackedHacks", defaultHacks)
+      }
     }
-  }, [])
-
-  const toggleHack = (id) => {
+    if (userId) load()
+  }, [userId])
+  const toggleHack = async (id) => {
     setHacks((prev) =>
       prev.map((h) => {
         if (h.id === id) {
           const updated = { ...h, tracked: !h.tracked }
-          // Показываем тост
           setToast(
             updated.tracked
               ? `"${h.title}" добавлен к ежедневному отслеживанию`
-              : `"${h.title}" удалён из отслеживания`
+              : `"${h.title}" удалён из отслеживания"`
           )
           setTimeout(() => setToast(null), 2000)
           return updated
@@ -77,8 +37,12 @@ export default function BiohacksPage() {
         return h
       })
     )
-  }
 
+    // После изменения — сохраняем в облако
+    setTimeout(async () => {
+      await saveUserData(userId, "trackedHacks", hacks)
+    }, 500)
+  }
   // Сохраняем в localStorage при изменении
   useEffect(() => {
     if (hacks.length > 0) {

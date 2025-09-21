@@ -2,8 +2,12 @@
 import { useMemo, useState, useEffect } from "react"
 import MetricInput from "../components/Tracker/MetricInput.jsx"
 import SaveButton from "../components/Tracker/SaveButton.jsx"
+import { useUserId } from "../App.jsx"
+import { saveUserData } from "../utils/cloudStorage.js"
 
 export default function TrackerPage() {
+  const userId = useUserId()
+
   // Используем ISO string для даты
   const today = useMemo(() => {
     return new Date().toISOString().split("T")[0] // YYYY-MM-DD
@@ -37,14 +41,14 @@ export default function TrackerPage() {
 
   // При загрузке — инициализируем hacks из trackedHacks
   useEffect(() => {
-    const initialHacks = {}
-    hacksList.forEach((hack) => {
-      if (hack.tracked) {
-        initialHacks[hack.id] = false // по умолчанию не сделано сегодня
+    const load = async () => {
+      const savedData = await loadUserData(userId, "trackerData")
+      if (savedData && savedData.length > 0) {
+        // Можно использовать последнюю запись для предзаполнения формы (опционально)
       }
-    })
-    setForm((prev) => ({ ...prev, hacks: initialHacks }))
-  }, [hacksList])
+    }
+    if (userId) load()
+  }, [userId])
 
   const update = (key) => (value) =>
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -192,9 +196,9 @@ export default function TrackerPage() {
       )}
 
       <SaveButton
-        onClick={() => {
+        onClick={async () => {
           const data = {
-            date: today, // ← ISO string: "2025-09-20"
+            date: today,
             mood: form.mood,
             work: form.work,
             social: form.social,
@@ -202,14 +206,15 @@ export default function TrackerPage() {
             sleep: Number(form.sleep) || 0,
             training: form.training,
             rating: form.rating,
-            hacks: { ...form.hacks }, // сохраняем состояние галочек
+            hacks: { ...form.hacks },
           }
 
-          const saved = JSON.parse(localStorage.getItem("trackerData") || "[]")
+          // Сохраняем в облако
+          const saved = (await loadUserData(userId, "trackerData")) || []
           saved.push(data)
-          localStorage.setItem("trackerData", JSON.stringify(saved))
+          await saveUserData(userId, "trackerData", saved)
 
-          alert("✅ День сохранён!") // временное уведомление
+          alert("✅ День сохранён!")
         }}
       />
     </div>
