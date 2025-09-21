@@ -1,8 +1,5 @@
 // AnalyticsPage.jsx
-import { useState, useMemo } from "react"
-import { useUserId } from "../App.jsx"
-import { loadUserData } from "../utils/cloudStorage.js"
-
+import { useState, useEffect, useMemo } from "react"
 import {
   LineChart,
   Line,
@@ -15,21 +12,23 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts"
+import { useUserId } from "../App.jsx"
+import { loadUserData } from "../utils/cloudStorage.js"
 
 export default function AnalyticsPage() {
   const userId = useUserId()
   const [hacksList, setHacksList] = useState([])
   const [allData, setAllData] = useState([])
-
-  const hacksList = JSON.parse(localStorage.getItem("trackedHacks") || "[]")
   const [period, setPeriod] = useState("week")
 
-  // Загружаем ВСЕ реальные данные
+  // Загружаем данные из Firestore при изменении userId
   useEffect(() => {
     const load = async () => {
       if (!userId) return
+
       const loadedHacks = (await loadUserData(userId, "trackedHacks")) || []
       const loadedData = (await loadUserData(userId, "trackerData")) || []
+
       setHacksList(loadedHacks)
       setAllData(
         loadedData
@@ -37,10 +36,11 @@ export default function AnalyticsPage() {
           .sort((a, b) => new Date(b.date) - new Date(a.date))
       )
     }
+
     load()
   }, [userId])
 
-  // Фильтруем данные по периоду — сохраняем date для всех
+  // Фильтруем данные по периоду
   const data = useMemo(() => {
     if (allData.length === 0) return []
 
@@ -51,7 +51,6 @@ export default function AnalyticsPage() {
       return allData.slice(0, 30).reverse()
     }
     if (period === "year") {
-      // Группируем по месяцам, сохраняя первую запись с датой
       const monthlyMap = {}
       for (let record of allData) {
         const date = new Date(record.date)
@@ -86,22 +85,6 @@ export default function AnalyticsPage() {
   const stats = useMemo(() => {
     if (data.length === 0) return { avgRating: 0, avgSteps: 0, avgSleep: 0 }
 
-    if (period === "year") {
-      const avgMood =
-        data.reduce((acc, d) => acc + (d.mood || 0), 0) / data.length
-      const avgSteps =
-        data.reduce((acc, d) => acc + (d.steps || 0), 0) / data.length
-      const avgSleep =
-        data.reduce((acc, d) => acc + (d.sleep || 0), 0) / data.length
-      const avgRating =
-        data.reduce((acc, d) => acc + (d.rating || 0), 0) / data.length
-      return {
-        avgRating: parseFloat(avgRating.toFixed(1)),
-        avgSteps: Math.round(avgSteps),
-        avgSleep: parseFloat(avgSleep.toFixed(1)),
-      }
-    }
-
     const avgMood =
       data.reduce((acc, d) => acc + (d.mood || 0), 0) / data.length
     const avgSteps =
@@ -118,12 +101,12 @@ export default function AnalyticsPage() {
     }
   }, [data, period])
 
-  // Данные для графиков — с fallback и защитой от ошибок
+  // Подготавливаем данные для графиков
   const chartData = useMemo(() => {
     if (data.length === 0) return []
 
     return data.map((d, i) => {
-      let dayLabel = String(i + 1) // fallback
+      let dayLabel = String(i + 1)
 
       try {
         if (period === "week" && d.date) {
@@ -148,14 +131,13 @@ export default function AnalyticsPage() {
     })
   }, [data, period])
 
-  // Статистика по биохакам — для всех периодов
+  // Статистика по биохакам
   const hackCompletionData = useMemo(() => {
     if (allData.length === 0) return []
 
     const trackedHacks = hacksList.filter((h) => h.tracked)
     if (trackedHacks.length === 0) return []
 
-    // Определяем, сколько записей брать
     let sliceLength = 7
     if (period === "month") sliceLength = 30
     if (period === "year") sliceLength = allData.length
@@ -163,15 +145,12 @@ export default function AnalyticsPage() {
     const recentData = allData.slice(0, sliceLength)
 
     return trackedHacks.map((hack) => {
-      // Массив выполнений: 1 если выполнен, 0 если нет
       const completionArray = recentData.map((day) =>
         day.hacks?.[hack.id] === true ? 1 : 0
       )
 
-      // Подсчёт общего количества выполнений
       const totalDays = completionArray.reduce((a, b) => a + b, 0)
 
-      // Подсчёт максимальной цепочки подряд
       let currentStreak = 0
       let maxStreak = 0
       for (let val of completionArray) {
@@ -190,6 +169,11 @@ export default function AnalyticsPage() {
       }
     })
   }, [allData, hacksList, period])
+
+  // Защита: если userId не загружен — показываем загрузку
+  if (!userId) {
+    return <div className="analytics">Загрузка данных...</div>
+  }
 
   return (
     <div className="analytics">
@@ -217,104 +201,108 @@ export default function AnalyticsPage() {
       </div>
 
       {/* График настроения и оценки дня */}
-      <div className="chart-container">
-        <h3 className="chart-subtitle">Настроение и оценка дня</h3>
-        <ResponsiveContainer width="100%" height={200}>
-          <LineChart
-            data={chartData}
-            margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--muted)" />
-            <XAxis dataKey="day" stroke="var(--text)" fontSize={12} />
-            <YAxis stroke="var(--text)" fontSize={12} domain={[0, 10]} />
-            <Tooltip
-              contentStyle={{
-                background: "var(--bg)",
-                border: "1px solid var(--muted)",
-                borderRadius: "8px",
-                color: "var(--text)",
-              }}
-              itemStyle={{ color: "var(--text)" }}
-              formatter={(value, name) => {
-                if (name === "mood") return [value, "Настроение"]
-                if (name === "rating") return [value, "Оценка дня"]
-                return [value, name]
-              }}
-            />
-            <Legend wrapperStyle={{ color: "var(--text)", fontSize: 12 }} />
-            <Line
-              type="monotone"
-              dataKey="mood"
-              name="Настроение"
-              stroke="#8b5cf6"
-              strokeWidth={2}
-              dot={{ fill: "#8b5cf6", strokeWidth: 0 }}
-              activeDot={{ r: 6 }}
-            />
-            <Line
-              type="monotone"
-              dataKey="rating"
-              name="Оценка дня"
-              stroke="#a78bfa"
-              strokeWidth={2}
-              dot={{ fill: "#a78bfa", strokeWidth: 0 }}
-              activeDot={{ r: 6 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+      {chartData.length > 0 && (
+        <div className="chart-container">
+          <h3 className="chart-subtitle">Настроение и оценка дня</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart
+              data={chartData}
+              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--muted)" />
+              <XAxis dataKey="day" stroke="var(--text)" fontSize={12} />
+              <YAxis stroke="var(--text)" fontSize={12} domain={[0, 10]} />
+              <Tooltip
+                contentStyle={{
+                  background: "var(--bg)",
+                  border: "1px solid var(--muted)",
+                  borderRadius: "8px",
+                  color: "var(--text)",
+                }}
+                itemStyle={{ color: "var(--text)" }}
+                formatter={(value, name) => {
+                  if (name === "mood") return [value, "Настроение"]
+                  if (name === "rating") return [value, "Оценка дня"]
+                  return [value, name]
+                }}
+              />
+              <Legend wrapperStyle={{ color: "var(--text)", fontSize: 12 }} />
+              <Line
+                type="monotone"
+                dataKey="mood"
+                name="Настроение"
+                stroke="#8b5cf6"
+                strokeWidth={2}
+                dot={{ fill: "#8b5cf6", strokeWidth: 0 }}
+                activeDot={{ r: 6 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="rating"
+                name="Оценка дня"
+                stroke="#a78bfa"
+                strokeWidth={2}
+                dot={{ fill: "#a78bfa", strokeWidth: 0 }}
+                activeDot={{ r: 6 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {/* График шагов и сна */}
-      <div className="chart-container">
-        <h3 className="chart-subtitle">Шаги и сон</h3>
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart
-            data={chartData}
-            margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--muted)" />
-            <XAxis dataKey="day" stroke="var(--text)" fontSize={12} />
-            <YAxis yAxisId="left" stroke="var(--text)" fontSize={12} />
-            <YAxis
-              yAxisId="right"
-              orientation="right"
-              stroke="var(--text)"
-              fontSize={12}
-            />
-            <Tooltip
-              contentStyle={{
-                background: "var(--bg)",
-                border: "1px solid var(--muted)",
-                borderRadius: "8px",
-                color: "var(--text)",
-              }}
-              itemStyle={{ color: "var(--text)" }}
-              formatter={(value, name) => {
-                if (name === "steps") return [value, "Шаги"]
-                if (name === "sleep") return [value, "Сон (ч)"]
-                return [value, name]
-              }}
-            />
-            <Legend wrapperStyle={{ color: "var(--text)", fontSize: 12 }} />
-            <Bar
-              yAxisId="left"
-              dataKey="steps"
-              name="Шаги"
-              fill="#8b5cf6"
-              radius={[4, 4, 0, 0]}
-            />
-            <Bar
-              yAxisId="right"
-              dataKey="sleep"
-              name="Сон (ч)"
-              fill="#c4b5fd"
-              radius={[4, 4, 0, 0]}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      {chartData.length > 0 && (
+        <div className="chart-container">
+          <h3 className="chart-subtitle">Шаги и сон</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart
+              data={chartData}
+              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--muted)" />
+              <XAxis dataKey="day" stroke="var(--text)" fontSize={12} />
+              <YAxis yAxisId="left" stroke="var(--text)" fontSize={12} />
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                stroke="var(--text)"
+                fontSize={12}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "var(--bg)",
+                  border: "1px solid var(--muted)",
+                  borderRadius: "8px",
+                  color: "var(--text)",
+                }}
+                itemStyle={{ color: "var(--text)" }}
+                formatter={(value, name) => {
+                  if (name === "steps") return [value, "Шаги"]
+                  if (name === "sleep") return [value, "Сон (ч)"]
+                  return [value, name]
+                }}
+              />
+              <Legend wrapperStyle={{ color: "var(--text)", fontSize: 12 }} />
+              <Bar
+                yAxisId="left"
+                dataKey="steps"
+                name="Шаги"
+                fill="#8b5cf6"
+                radius={[4, 4, 0, 0]}
+              />
+              <Bar
+                yAxisId="right"
+                dataKey="sleep"
+                name="Сон (ч)"
+                fill="#c4b5fd"
+                radius={[4, 4, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
-      {/* График биохаков — дни подряд и всего дней */}
+      {/* График биохаков */}
       {hackCompletionData.length > 0 && (
         <div className="chart-container">
           <h3 className="chart-subtitle">
