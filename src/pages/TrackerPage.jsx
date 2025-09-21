@@ -3,8 +3,7 @@ import { useMemo, useState, useEffect } from "react"
 import MetricInput from "../components/Tracker/MetricInput.jsx"
 import SaveButton from "../components/Tracker/SaveButton.jsx"
 import { useUserId } from "../App.jsx"
-import { saveUserData } from "../utils/cloudStorage.js"
-
+import { loadUserData, saveUserData } from "../utils/cloudStorage.js"
 export default function TrackerPage() {
   const userId = useUserId()
 

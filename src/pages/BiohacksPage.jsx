@@ -1,11 +1,18 @@
 // BiohacksPage.jsx
 import { useState, useEffect } from "react"
+import { useUserId } from "../App.jsx"
+import { loadUserData, saveUserData } from "../utils/cloudStorage.js"
 
 export default function BiohacksPage() {
+  const userId = useUserId() // ← КРИТИЧНО!
   const [hacks, setHacks] = useState([])
   const [toast, setToast] = useState(null)
 
-  // Загружаем из localStorage
+  // Защита: если userId ещё не загружен — показываем загрузку
+  if (!userId) {
+    return <div>Инициализация...</div>
+  }
+
   useEffect(() => {
     const load = async () => {
       const saved = await loadUserData(userId, "trackedHacks")
@@ -13,14 +20,56 @@ export default function BiohacksPage() {
         setHacks(saved)
       } else {
         const defaultHacks = [
-          /* твой массив */
+          {
+            id: 1,
+            title: "Прогулка на свежем воздухе",
+            desc: "Естественный свет обязательно должен присутствовать в нашей жизни.",
+            tracked: false,
+          },
+          {
+            id: 2,
+            title: "Вода после пробуждения",
+            desc: "Стакан воды для гидратации и метаболизма.",
+            tracked: false,
+          },
+          {
+            id: 3,
+            title: "Зарядка утром",
+            desc: "Движение и запуск организма",
+            tracked: false,
+          },
+          {
+            id: 4,
+            title: "Контрастный душ",
+            desc: "Тренировка сосудов и пробуждение за счет смены температур.",
+            tracked: false,
+          },
+          {
+            id: 5,
+            title: "1 час в день без телефона",
+            desc: "Снижение нагрузки на глаза и нервную систему.",
+            tracked: false,
+          },
+          {
+            id: 6,
+            title: "Интервальное голодание 16/8",
+            desc: "Соблюдение окна для приема пищи для улучшения метаболизма и аутофагии.",
+            tracked: false,
+          },
+          {
+            id: 7,
+            title: "Без синего света вечером",
+            desc: "Использование режима Night Shift и отказ от гаджетов перед сном для улучшения качества сна.",
+            tracked: false,
+          },
         ]
         setHacks(defaultHacks)
         await saveUserData(userId, "trackedHacks", defaultHacks)
       }
     }
-    if (userId) load()
+    load()
   }, [userId])
+
   const toggleHack = async (id) => {
     setHacks((prev) =>
       prev.map((h) => {
@@ -38,17 +87,11 @@ export default function BiohacksPage() {
       })
     )
 
-    // После изменения — сохраняем в облако
+    // Сохраняем изменения в облаке
     setTimeout(async () => {
       await saveUserData(userId, "trackedHacks", hacks)
     }, 500)
   }
-  // Сохраняем в localStorage при изменении
-  useEffect(() => {
-    if (hacks.length > 0) {
-      localStorage.setItem("trackedHacks", JSON.stringify(hacks))
-    }
-  }, [hacks])
 
   return (
     <div className="biohacks">
@@ -69,7 +112,7 @@ export default function BiohacksPage() {
         <div
           style={{
             position: "fixed",
-            bottom: "90px", // выше bottom-nav
+            bottom: "90px",
             left: "50%",
             transform: "translateX(-50%)",
             background: "var(--accent)",
