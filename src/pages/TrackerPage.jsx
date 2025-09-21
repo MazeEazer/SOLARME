@@ -46,17 +46,56 @@ export default function TrackerPage() {
     rating: 5,
     hacks: {}, // { [id]: boolean }
   })
-
+  useEffect(() => {
+    if (hacksList.length > 0) {
+      const initialHacks = {}
+      hacksList.forEach((hack) => {
+        if (hack.tracked) {
+          initialHacks[hack.id] = false // по умолчанию не сделано сегодня
+        }
+      })
+      setForm((prev) => ({
+        ...prev,
+        hacks: initialHacks,
+      }))
+    }
+  }, [hacksList])
   // При загрузке — инициализируем hacks из trackedHacks
+  // При загрузке — инициализируем hacks из trackedHacks + предзаполняем из последней записи
   useEffect(() => {
     const load = async () => {
+      if (!userId || hacksList.length === 0) return
+
       const savedData = await loadUserData(userId, "trackerData")
+      let initialHacks = {}
+
+      // Сначала — все tracked хаки со значением false
+      hacksList.forEach((hack) => {
+        if (hack.tracked) {
+          initialHacks[hack.id] = false
+        }
+      })
+
+      // Если есть сохранённые данные — используем последнюю запись
       if (savedData && savedData.length > 0) {
-        // Можно использовать последнюю запись для предзаполнения формы (опционально)
+        const lastEntry = savedData[savedData.length - 1]
+        if (lastEntry.hacks) {
+          // Объединяем: если хак был отмечен в прошлый раз — ставим его значение
+          Object.keys(initialHacks).forEach((id) => {
+            if (lastEntry.hacks[id] !== undefined) {
+              initialHacks[id] = lastEntry.hacks[id]
+            }
+          })
+        }
       }
+
+      setForm((prev) => ({
+        ...prev,
+        hacks: initialHacks,
+      }))
     }
-    if (userId) load()
-  }, [userId])
+    load()
+  }, [userId, hacksList])
 
   const update = (key) => (value) =>
     setForm((prev) => ({ ...prev, [key]: value }))
