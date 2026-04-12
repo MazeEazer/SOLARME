@@ -7,6 +7,7 @@ import DashboardPage from "./pages/DashboardPage.jsx"
 import TrackerPage from "./pages/TrackerPage.jsx"
 import AnalyticsPage from "./pages/AnalyticsPage.jsx"
 import BiohacksPage from "./pages/BiohacksPage.jsx"
+import AIInsightsPage from "./pages/AIInsightsPage.jsx"
 
 const router = createBrowserRouter([
   {
@@ -16,6 +17,8 @@ const router = createBrowserRouter([
       { index: true, element: <DashboardPage /> },
       { path: "tracker", element: <TrackerPage /> },
       { path: "analytics", element: <AnalyticsPage /> },
+      { path: "ai-insights", element: <AIInsightsPage /> }, // ← НОВОЕ
+
       { path: "biohacks", element: <BiohacksPage /> },
     ],
   },
@@ -24,5 +27,5 @@ const router = createBrowserRouter([
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <RouterProvider router={router} />
-  </StrictMode>
+  </StrictMode>,
 )

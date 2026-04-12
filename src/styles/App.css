@@ -14,8 +14,16 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
-    Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Helvetica,
+    Arial,
+    "Apple Color Emoji",
+    "Segoe UI Emoji";
 }
 
 .app-container {
@@ -62,7 +70,7 @@ body {
   background: var(--bg);
   border-top: 1px solid var(--muted);
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   z-index: 1000;
   padding: 8px 0;
   box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.1);

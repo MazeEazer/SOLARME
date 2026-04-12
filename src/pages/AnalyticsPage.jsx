@@ -33,7 +33,7 @@ export default function AnalyticsPage() {
       setAllData(
         loadedData
           .filter((item) => item.date && !isNaN(new Date(item.date).getTime()))
-          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .sort((a, b) => new Date(b.date) - new Date(a.date)),
       )
     }
 
@@ -146,7 +146,7 @@ export default function AnalyticsPage() {
 
     return trackedHacks.map((hack) => {
       const completionArray = recentData.map((day) =>
-        day.hacks?.[hack.id] === true ? 1 : 0
+        day.hacks?.[hack.id] === true ? 1 : 0,
       )
 
       const totalDays = completionArray.reduce((a, b) => a + b, 0)
@@ -310,8 +310,8 @@ export default function AnalyticsPage() {
             {period === "week"
               ? "последняя неделя"
               : period === "month"
-              ? "последний месяц"
-              : "весь период"}
+                ? "последний месяц"
+                : "весь период"}
             )
           </h3>
           <ResponsiveContainer width="100%" height={180}>

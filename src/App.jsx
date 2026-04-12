@@ -86,6 +86,13 @@ function App() {
           <span className="nav-label">Аналитика</span>
         </NavLink>
         <NavLink
+          to="/ai-insights"
+          className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
+        >
+          <span className="nav-icon">🤖</span>
+          <span className="nav-label">AI-Инсайты</span>
+        </NavLink>
+        <NavLink
           to="/biohacks"
           className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
         >
