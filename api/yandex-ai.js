@@ -4,10 +4,7 @@ export const config = {
 }
 
 export default async function handler(req) {
-  console.log("🔥 API Route Called")
-  console.log("Method:", req.method)
-  console.log("Headers:", Object.fromEntries(req.headers))
-
+  // CORS настройки
   const allowedOrigins = ["https://solarme.vercel.app", "http://localhost:5173"]
   const origin = req.headers.get("origin")
   const corsHeaders = {
@@ -18,10 +15,12 @@ export default async function handler(req) {
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
   }
 
+  // Обработка preflight запроса
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders })
   }
 
+  // Только POST запросы
   if (req.method !== "POST") {
     return new Response("Method not allowed", {
       status: 405,
@@ -31,16 +30,14 @@ export default async function handler(req) {
 
   try {
     const body = await req.json()
-    console.log("📦 Request Body:", JSON.stringify(body, null, 2))
 
+    // Чтение переменных окружения
     const YANDEX_API_KEY = process.env.VITE_YANDEX_AI_KEY
     const YANDEX_FOLDER_ID = process.env.VITE_YANDEX_FOLDER_ID
 
-    console.log("🔑 API Key exists:", !!YANDEX_API_KEY)
-    console.log("📁 Folder ID exists:", !!YANDEX_FOLDER_ID)
-
+    // Проверка наличия ключей
     if (!YANDEX_API_KEY || !YANDEX_FOLDER_ID) {
-      console.error("❌ Missing credentials")
+      console.error("❌ Missing Yandex credentials")
       return new Response(
         JSON.stringify({ error: "Yandex AI credentials not configured" }),
         {
@@ -50,17 +47,29 @@ export default async function handler(req) {
       )
     }
 
-    // Проверяем формат body
-    if (!body.input || !body.instructions) {
-      console.error("❌ Invalid body format - missing input or instructions")
-      return new Response(JSON.stringify({ error: "Invalid request format" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      })
+    // 🔧 ИСПРАВЛЕНИЕ: Responses API ожидает просто имя модели, не URI
+    // Создаём копию body и нормализуем модель
+    const yandexBody = { ...body }
+
+    // Если model в формате "gpt://folder/model", извлекаем только имя модели
+    if (yandexBody.model && typeof yandexBody.model === "string") {
+      if (yandexBody.model.startsWith("gpt://")) {
+        // Извлекаем имя модели после последнего слеша
+        const parts = yandexBody.model.split("/")
+        yandexBody.model = parts[parts.length - 1] || "yandexgpt-lite"
+      }
     }
 
-    console.log("🚀 Sending to Yandex API...")
+    // Логирование для отладки (уберёте в production)
+    console.log("🚀 Sending to Yandex Responses API:", {
+      model: yandexBody.model,
+      hasInput: !!yandexBody.input,
+      hasInstructions: !!yandexBody.instructions,
+      hasTools: !!yandexBody.tools,
+      toolChoice: yandexBody.tool_choice,
+    })
 
+    // Отправка запроса к Yandex Responses API
     const yandexResponse = await fetch(
       "https://llm.api.cloud.yandex.net/foundationModels/v1/responses",
       {
@@ -70,19 +79,31 @@ export default async function handler(req) {
           Authorization: `Api-Key ${YANDEX_API_KEY}`,
           "x-folder-id": YANDEX_FOLDER_ID,
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(yandexBody),
       },
     )
 
     console.log("📥 Yandex Response Status:", yandexResponse.status)
 
+    // Обработка ошибок API
     if (!yandexResponse.ok) {
-      const errorData = await yandexResponse.json().catch(() => ({}))
-      console.error("❌ Yandex API Error:", errorData)
+      const errorText = await yandexResponse.text().catch(() => "")
+      console.error("❌ Yandex API Error:", yandexResponse.status, errorText)
+
+      let errorData = {}
+      try {
+        errorData = JSON.parse(errorText)
+      } catch (e) {
+        // Если ответ не JSON, возвращаем как есть
+      }
+
       return new Response(
         JSON.stringify({
           error:
-            errorData.message || `Yandex API Error: ${yandexResponse.status}`,
+            errorData.message ||
+            errorData.error ||
+            `Yandex API Error: ${yandexResponse.status}`,
+          details: errorText.slice(0, 500), // Обрезаем для безопасности
         }),
         {
           status: yandexResponse.status,
@@ -91,17 +112,22 @@ export default async function handler(req) {
       )
     }
 
+    // Успешный ответ
     const data = await yandexResponse.json()
-    console.log("✅ Success:", data)
+    console.log("✅ Success, response length:", JSON.stringify(data).length)
 
     return new Response(JSON.stringify(data), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     })
   } catch (error) {
-    console.error("💥 API Error:", error)
+    console.error("💥 API Route Error:", error)
+
     return new Response(
-      JSON.stringify({ error: error.message || "Internal server error" }),
+      JSON.stringify({
+        error: error.message || "Internal server error",
+        type: error.name,
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
