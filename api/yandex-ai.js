@@ -47,26 +47,18 @@ export default async function handler(req) {
       )
     }
 
-    // 🔧 ИСПРАВЛЕНИЕ: Responses API ожидает просто имя модели, не URI
-    // Создаём копию body и нормализуем модель
+    // 🔧 ИСПРАВЛЕНИЕ: Передаем body как есть, не модифицируя model
+    // Yandex Responses API часто требует полный URI модели (gpt://folder/model)
     const yandexBody = { ...body }
 
-    // Если model в формате "gpt://folder/model", извлекаем только имя модели
-    if (yandexBody.model && typeof yandexBody.model === "string") {
-      if (yandexBody.model.startsWith("gpt://")) {
-        // Извлекаем имя модели после последнего слеша
-        const parts = yandexBody.model.split("/")
-        yandexBody.model = parts[parts.length - 1] || "yandexgpt-lite"
-      }
-    }
-
-    // Логирование для отладки (уберёте в production)
+    // Логирование для отладки (видно в Vercel Logs)
     console.log("🚀 Sending to Yandex Responses API:", {
       model: yandexBody.model,
       hasInput: !!yandexBody.input,
       hasInstructions: !!yandexBody.instructions,
       hasTools: !!yandexBody.tools,
       toolChoice: yandexBody.tool_choice,
+      folderIdInHeader: YANDEX_FOLDER_ID,
     })
 
     // Отправка запроса к Yandex Responses API
@@ -94,7 +86,7 @@ export default async function handler(req) {
       try {
         errorData = JSON.parse(errorText)
       } catch (e) {
-        // Если ответ не JSON, возвращаем как есть
+        // Если ответ не JSON
       }
 
       return new Response(
@@ -103,7 +95,7 @@ export default async function handler(req) {
             errorData.message ||
             errorData.error ||
             `Yandex API Error: ${yandexResponse.status}`,
-          details: errorText.slice(0, 500), // Обрезаем для безопасности
+          details: errorText.slice(0, 500),
         }),
         {
           status: yandexResponse.status,
