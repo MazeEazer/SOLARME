@@ -12,7 +12,7 @@ const YANDEX_AI_URL = "/api/yandex/v1/responses"
 export const getMockUserData = (scenario = "balanced", period = "week") => {
   // ID биохаков как в TrackerPage
   const HACKS = {
-    walk: { id: 1, title: "Прогулка на свежем воздухе" },
+    walk: { id: 1, title: "Прогулка на  свежем  воздухе" },
     water: { id: 2, title: "Вода после пробуждения" },
     workout: { id: 3, title: "Зарядка утром" },
     cold: { id: 4, title: "Контрастный душ" },
