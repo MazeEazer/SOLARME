@@ -9,7 +9,9 @@ const YANDEX_VECTOR_STORE_ID =
   import.meta.env?.VITE_YANDEX_VECTOR_STORE_ID ||
   process.env.VITE_YANDEX_VECTOR_STORE_ID
 
-const YANDEX_AI_URL = "https://ai.api.cloud.yandex.net/v1/responses"
+// const YANDEX_AI_URL = "https://ai.api.cloud.yandex.net/v1/responses"
+const YANDEX_AI_URL =
+  "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
 const YANDEX_MODEL = "yandexgpt-lite"
 
 const SYSTEM_PROMPT = `Ты — персональный AI-консультант по биохакингу приложения SOLAR ME.
@@ -71,15 +73,23 @@ export const generateAIInsight = async (userData, useRAG = true) => {
       }),
   }
 
+  // const response = await fetch(YANDEX_AI_URL, {
+  //   method: "POST",
+  //   headers: {
+  //     "Content-Type": "application/json",
+  //     Authorization: `Api-Key ${YANDEX_API_KEY}`,
+  //   },
+  //   body: JSON.stringify(requestBody),
+  // })
   const response = await fetch(YANDEX_AI_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Api-Key ${YANDEX_API_KEY}`,
+      "x-folder-id": YANDEX_FOLDER_ID,
     },
     body: JSON.stringify(requestBody),
   })
-
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}))
     throw new Error(
