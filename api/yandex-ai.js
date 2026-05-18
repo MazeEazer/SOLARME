@@ -4,7 +4,6 @@ export const config = {
 }
 
 export default async function handler(req) {
-  // CORS настройки
   const allowedOrigins = ["https://solarme.vercel.app", "http://localhost:5173"]
   const origin = req.headers.get("origin")
   const corsHeaders = {
@@ -28,43 +27,46 @@ export default async function handler(req) {
 
   try {
     const body = await req.json()
-
     const YANDEX_API_KEY = process.env.VITE_YANDEX_AI_KEY
     const YANDEX_FOLDER_ID = process.env.VITE_YANDEX_FOLDER_ID
+    const YANDEX_VECTOR_STORE_ID = process.env.VITE_YANDEX_VECTOR_STORE_ID
 
     if (!YANDEX_API_KEY || !YANDEX_FOLDER_ID) {
-      console.error("❌ Missing Yandex credentials")
-      return new Response(
-        JSON.stringify({ error: "Credentials not configured" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      )
+      return new Response(JSON.stringify({ error: "Credentials missing" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      })
     }
 
-    // 🔧 ИСПРАВЛЕНИЕ: Используем modelUri вместо model
+    // 🔧 ФОРМИРУЕМ ЗАПРОС БЕЗ tool_choice: 'required'
     const yandexBody = {
-      modelUri: `gpt://${YANDEX_FOLDER_ID}/yandexgpt-lite`, // <-- Правильное имя поля!
+      modelUri: `gpt://${YANDEX_FOLDER_ID}/yandexgpt-lite`,
       input: body.input,
       instructions: body.instructions,
       temperature: body.temperature || 0.3,
       max_output_tokens: body.max_output_tokens || 1000,
     }
 
-    // Добавляем RAG инструменты
-    if (body.tools && body.tools.length > 0) {
-      yandexBody.tools = body.tools
-      yandexBody.tool_choice = body.tool_choice || "auto"
+    // Добавляем инструменты ТОЛЬКО если ID хранилища существует
+    if (YANDEX_VECTOR_STORE_ID && body.tools && body.tools.length > 0) {
+      // Упрощаем структуру tools для совместимости
+      yandexBody.tools = [
+        {
+          type: "file_search",
+          vector_store_ids: [YANDEX_VECTOR_STORE_ID],
+          max_num_results: body.tools[0].max_num_results || 5,
+        },
+      ]
+      // Убираем tool_choice или ставим 'auto'
+      // yandexBody.tool_choice = "auto"
     }
 
-    console.log("🚀 Sending Request to Yandex:", {
+    console.log("🚀 Sending to Yandex:", {
       modelUri: yandexBody.modelUri,
       hasTools: !!yandexBody.tools,
-      toolChoice: yandexBody.tool_choice,
+      vectorStoreId: YANDEX_VECTOR_STORE_ID,
     })
 
-    // Отправка запроса к Yandex Responses API
     const yandexResponse = await fetch(
       "https://llm.api.cloud.yandex.net/foundationModels/v1/responses",
       {
@@ -80,12 +82,11 @@ export default async function handler(req) {
 
     if (!yandexResponse.ok) {
       const errorText = await yandexResponse.text()
-      console.error("❌ Yandex API Error Status:", yandexResponse.status)
-      console.error("❌ Yandex API Error Body:", errorText)
+      console.error("❌ Yandex Error:", yandexResponse.status, errorText)
 
       return new Response(
         JSON.stringify({
-          error: `Yandex API Error: ${yandexResponse.status}`,
+          error: `Yandex API: ${yandexResponse.status}`,
           details: errorText,
         }),
         {
@@ -96,14 +97,14 @@ export default async function handler(req) {
     }
 
     const data = await yandexResponse.json()
-    console.log("✅ Success! Response received.")
+    console.log("✅ Success!")
 
     return new Response(JSON.stringify(data), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     })
   } catch (error) {
-    console.error("💥 Edge Function Error:", error)
+    console.error("💥 Error:", error)
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
