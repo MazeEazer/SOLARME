@@ -38,33 +38,24 @@ export default async function handler(req) {
       })
     }
 
-    // 🔧 ФОРМИРУЕМ ЗАПРОС БЕЗ tool_choice: 'required'
+    // 🔧 ИСПРАВЛЕНИЕ: Используем ПРАВИЛЬНЫЙ формат для Search Index
     const yandexBody = {
       modelUri: `gpt://${YANDEX_FOLDER_ID}/yandexgpt-lite`,
       input: body.input,
       instructions: body.instructions,
       temperature: body.temperature || 0.3,
       max_output_tokens: body.max_output_tokens || 1000,
+      // 🔥 ПРАВИЛЬНЫЙ ФОРМАТ для поискового индекса
+      retrieval_options: {
+        retrieval_type: "INDEX",
+        index_id: YANDEX_VECTOR_STORE_ID,
+        max_num_results: 5,
+      },
     }
 
-    // Добавляем инструменты ТОЛЬКО если ID хранилища существует
-    if (YANDEX_VECTOR_STORE_ID && body.tools && body.tools.length > 0) {
-      // Упрощаем структуру tools для совместимости
-      yandexBody.tools = [
-        {
-          type: "file_search",
-          vector_store_ids: [YANDEX_VECTOR_STORE_ID],
-          max_num_results: body.tools[0].max_num_results || 5,
-        },
-      ]
-      // Убираем tool_choice или ставим 'auto'
-      // yandexBody.tool_choice = "auto"
-    }
-
-    console.log("🚀 Sending to Yandex:", {
+    console.log("🚀 Sending to Yandex with Search Index:", {
       modelUri: yandexBody.modelUri,
-      hasTools: !!yandexBody.tools,
-      vectorStoreId: YANDEX_VECTOR_STORE_ID,
+      indexId: yandexBody.retrieval_options.index_id,
     })
 
     const yandexResponse = await fetch(
