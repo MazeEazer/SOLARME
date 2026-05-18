@@ -4,6 +4,13 @@ export const config = {
 }
 
 export default async function handler(req) {
+  console.log("🔍 ENV CHECK:", {
+    hasKey: !!process.env.VITE_YANDEX_AI_KEY,
+    hasFolder: !!process.env.VITE_YANDEX_FOLDER_ID,
+    hasVector: !!process.env.VITE_YANDEX_VECTOR_STORE_ID,
+    folderId: process.env.VITE_YANDEX_FOLDER_ID,
+    vectorId: process.env.VITE_YANDEX_VECTOR_STORE_ID,
+  })
   // CORS настройки
   const allowedOrigins = ["https://solarme.vercel.app", "http://localhost:5173"]
   const origin = req.headers.get("origin")
