@@ -4,7 +4,6 @@ export const config = {
 }
 
 export default async function handler(req) {
-  // CORS настройки
   const allowedOrigins = ["https://solarme.vercel.app", "http://localhost:5173"]
   const origin = req.headers.get("origin")
   const corsHeaders = {
@@ -32,12 +31,6 @@ export default async function handler(req) {
     const YANDEX_FOLDER_ID = process.env.VITE_YANDEX_FOLDER_ID
     const YANDEX_VECTOR_STORE_ID = process.env.VITE_YANDEX_VECTOR_STORE_ID
 
-    console.log("🔍 ENV CHECK:", {
-      hasKey: !!YANDEX_API_KEY,
-      hasFolder: !!YANDEX_FOLDER_ID,
-      hasVector: !!YANDEX_VECTOR_STORE_ID,
-    })
-
     if (!YANDEX_API_KEY || !YANDEX_FOLDER_ID) {
       return new Response(JSON.stringify({ error: "Credentials missing" }), {
         status: 400,
@@ -45,36 +38,32 @@ export default async function handler(req) {
       })
     }
 
-    // 🔥 ФОРМИРУЕМ ЗАПРОС ДЛЯ YANDEX COMPLETION API
+    // 🔥 ИСПОЛЬЗУЕМ RESPONSES API с retrieval_options для Search Index
     const yandexBody = {
       modelUri: `gpt://${YANDEX_FOLDER_ID}/yandexgpt-lite`,
-      completionOptions: {
-        temperature: body.temperature || 0.3,
-        maxTokens: body.max_output_tokens || 1000,
-      },
-      messages: [
-        { role: "system", text: body.instructions || "" },
-        { role: "user", text: body.input || "" },
-      ],
+      input: body.input,
+      instructions: body.instructions,
+      temperature: body.temperature || 0.3,
+      max_output_tokens: body.max_output_tokens || 1000,
     }
 
-    // 🔧 ИСПРАВЛЕНИЕ: Правильная структура tools для Search Index
+    // 🔧 ПРАВИЛЬНЫЙ ФОРМАТ для Search Index в Responses API
     if (YANDEX_VECTOR_STORE_ID) {
-      yandexBody.tools = [
-        {
-          type: "search", // <-- ВАЖНО: именно "search", а не "file_search"
-          search: {
-            index_id: YANDEX_VECTOR_STORE_ID,
-            max_num_results: 5,
-          },
-        },
-      ]
+      yandexBody.retrieval_options = {
+        retrieval_type: "INDEX",
+        index_id: YANDEX_VECTOR_STORE_ID,
+        max_num_results: 5,
+      }
     }
 
-    console.log("🚀 Sending to Yandex:", JSON.stringify(yandexBody, null, 2))
+    console.log("🚀 Sending to Yandex Responses API:", {
+      modelUri: yandexBody.modelUri,
+      retrievalOptions: yandexBody.retrieval_options,
+    })
 
+    // 🔥 RESPONSES ENDPOINT
     const yandexResponse = await fetch(
-      "https://llm.api.cloud.yandex.net/foundationModels/v1/completion",
+      "https://llm.api.cloud.yandex.net/foundationModels/v1/responses",
       {
         method: "POST",
         headers: {
@@ -105,25 +94,14 @@ export default async function handler(req) {
     }
 
     const data = await yandexResponse.json()
-    console.log("✅ Success! Raw response keys:", Object.keys(data))
+    console.log("✅ Success!")
 
-    // Извлекаем текст из стандартного ответа Completion API
-    const resultText =
-      data.result?.alternatives?.[0]?.message?.text ||
-      data.result?.text ||
-      "Ответ получен, но текст не найден в стандартном поле."
-
-    return new Response(
-      JSON.stringify({
-        output: [{ content: [{ text: resultText }] }],
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    )
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    })
   } catch (error) {
-    console.error("💥 Edge Function Error:", error)
+    console.error("💥 Error:", error)
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
