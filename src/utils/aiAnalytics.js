@@ -11,7 +11,9 @@ const YANDEX_API_KEY = import.meta.env.VITE_YANDEX_AI_KEY
 const YANDEX_FOLDER_ID = import.meta.env.VITE_YANDEX_FOLDER_ID
 const YANDEX_VECTOR_STORE_ID = import.meta.env.VITE_YANDEX_VECTOR_STORE_ID // ID векторного хранилища с файлами
 
-const YANDEX_AI_URL = "/api/yandex/v1/responses"
+// const YANDEX_AI_URL = "/api/yandex/v1/responses"
+const YANDEX_AI_URL =
+  "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
 const YANDEX_MODEL = "yandexgpt-lite" // или "yandexgpt" для более мощной модели
 
 // ============================================================================
@@ -445,15 +447,23 @@ export const generateAIInsight = async (userData, useRAG = true) => {
         }),
     }
 
+    // const response = await fetch(YANDEX_AI_URL, {
+    //   method: "POST",
+    //   headers: {
+    //     "Content-Type": "application/json",
+    //     // Authorization заголовок добавляется автоматически через proxy
+    //   },
+    //   body: JSON.stringify(requestBody),
+    // })
     const response = await fetch(YANDEX_AI_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        // Authorization заголовок добавляется автоматически через proxy
+        Authorization: `Api-Key ${YANDEX_API_KEY}`,
+        "x-folder-id": YANDEX_FOLDER_ID,
       },
       body: JSON.stringify(requestBody),
     })
-
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
       console.error("Yandex AI API Error:", errorData)
