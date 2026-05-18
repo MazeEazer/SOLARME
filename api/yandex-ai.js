@@ -43,35 +43,28 @@ export default async function handler(req) {
       )
     }
 
-    // 🔧 ЯВНО ФОРМИРУЕМ ЗАПРОС ДЛЯ YANDEX RESPONSES API
-    // Это решает проблему "404 Not Found", связанную с конфликтом ID
+    // 🔧 ИСПРАВЛЕНИЕ: Используем modelUri вместо model
     const yandexBody = {
-      // 1. Используем полный URI модели (обязательно для RAG)
-      model: `gpt://${YANDEX_FOLDER_ID}/yandexgpt-lite`,
-
-      // 2. Данные пользователя и промпт
+      modelUri: `gpt://${YANDEX_FOLDER_ID}/yandexgpt-lite`, // <-- Правильное имя поля!
       input: body.input,
       instructions: body.instructions,
-
-      // 3. Параметры генерации
       temperature: body.temperature || 0.3,
       max_output_tokens: body.max_output_tokens || 1000,
     }
 
-    // 4. Добавляем RAG инструменты ТОЛЬКО если они есть в запросе с фронтенда
+    // Добавляем RAG инструменты
     if (body.tools && body.tools.length > 0) {
       yandexBody.tools = body.tools
-      yandexBody.tool_choice = body.tool_choice || "auto" // Иногда 'auto' надежнее, чем 'required'
+      yandexBody.tool_choice = body.tool_choice || "auto"
     }
 
     console.log("🚀 Sending Request to Yandex:", {
-      model: yandexBody.model,
+      modelUri: yandexBody.modelUri,
       hasTools: !!yandexBody.tools,
       toolChoice: yandexBody.tool_choice,
-      folderId: YANDEX_FOLDER_ID,
     })
 
-    // Отправка запроса
+    // Отправка запроса к Yandex Responses API
     const yandexResponse = await fetch(
       "https://llm.api.cloud.yandex.net/foundationModels/v1/responses",
       {
@@ -85,17 +78,15 @@ export default async function handler(req) {
       },
     )
 
-    // Обработка ответа
     if (!yandexResponse.ok) {
-      // 🔥 ЧИТАЕМ ТЕЛО ОШИБКИ ОТ ЯНДЕКСА
       const errorText = await yandexResponse.text()
       console.error("❌ Yandex API Error Status:", yandexResponse.status)
-      console.error("❌ Yandex API Error Body:", errorText) // Это покажет, ЧТО ИМЕННО НЕ НАЙДЕНО
+      console.error("❌ Yandex API Error Body:", errorText)
 
       return new Response(
         JSON.stringify({
           error: `Yandex API Error: ${yandexResponse.status}`,
-          details: errorText.slice(0, 500), // Обрезаем, чтобы не перегружать
+          details: errorText,
         }),
         {
           status: yandexResponse.status,
