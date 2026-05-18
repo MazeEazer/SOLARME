@@ -13,7 +13,7 @@ const YANDEX_VECTOR_STORE_ID = import.meta.env.VITE_YANDEX_VECTOR_STORE_ID // ID
 
 // const YANDEX_AI_URL = "/api/yandex/v1/responses"
 const YANDEX_AI_URL =
-  "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
+  "https://llm.api.cloud.yandex.net/foundationModels/v1/responses"
 const YANDEX_MODEL = "yandexgpt-lite" // или "yandexgpt" для более мощной модели
 
 // ============================================================================
@@ -419,17 +419,48 @@ export const generateAIInsight = async (userData, useRAG = true) => {
   }
 
   try {
+    // const requestBody = {
+    //   model: `gpt://${YANDEX_FOLDER_ID}/${YANDEX_MODEL}`,
+
+    //   // ✅ ИСПРАВЛЕНО: простая строка + instructions (не массив!)
+    //   input: buildPrompt(userData),
+    //   instructions: SYSTEM_PROMPT,
+
+    //   temperature: 0.3,
+    //   max_output_tokens: 1000,
+
+    //   // ✅ RAG с forced search
+    //   ...(useRAG &&
+    //     YANDEX_VECTOR_STORE_ID && {
+    //       tools: [
+    //         {
+    //           type: "file_search",
+    //           vector_store_ids: [YANDEX_VECTOR_STORE_ID],
+    //           max_num_results: 15,
+    //           ranking_options: {
+    //             ranker: "default",
+    //             score_threshold: 0.1,
+    //           },
+    //         },
+    //       ],
+    //       tool_choice: "required", // ← Заставляет искать в файлах!
+    //     }),
+    // }
+
+    // const response = await fetch(YANDEX_AI_URL, {
+    //   method: "POST",
+    //   headers: {
+    //     "Content-Type": "application/json",
+    //     // Authorization заголовок добавляется автоматически через proxy
+    //   },
+    //   body: JSON.stringify(requestBody),
+    // })
     const requestBody = {
       model: `gpt://${YANDEX_FOLDER_ID}/${YANDEX_MODEL}`,
-
-      // ✅ ИСПРАВЛЕНО: простая строка + instructions (не массив!)
       input: buildPrompt(userData),
       instructions: SYSTEM_PROMPT,
-
       temperature: 0.3,
       max_output_tokens: 1000,
-
-      // ✅ RAG с forced search
       ...(useRAG &&
         YANDEX_VECTOR_STORE_ID && {
           tools: [
@@ -443,18 +474,9 @@ export const generateAIInsight = async (userData, useRAG = true) => {
               },
             },
           ],
-          tool_choice: "required", // ← Заставляет искать в файлах!
+          tool_choice: "required",
         }),
     }
-
-    // const response = await fetch(YANDEX_AI_URL, {
-    //   method: "POST",
-    //   headers: {
-    //     "Content-Type": "application/json",
-    //     // Authorization заголовок добавляется автоматически через proxy
-    //   },
-    //   body: JSON.stringify(requestBody),
-    // })
     const response = await fetch(YANDEX_AI_URL, {
       method: "POST",
       headers: {
