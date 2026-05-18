@@ -4,6 +4,7 @@ export const config = {
 }
 
 export default async function handler(req) {
+  // CORS настройки
   const allowedOrigins = ["https://solarme.vercel.app", "http://localhost:5173"]
   const origin = req.headers.get("origin")
   const corsHeaders = {
@@ -44,7 +45,7 @@ export default async function handler(req) {
       })
     }
 
-    // 🔥 ИСПОЛЬЗУЕМ COMPLETION API с file_search
+    // 🔥 ФОРМИРУЕМ ЗАПРОС ДЛЯ YANDEX COMPLETION API
     const yandexBody = {
       modelUri: `gpt://${YANDEX_FOLDER_ID}/yandexgpt-lite`,
       completionOptions: {
@@ -57,26 +58,21 @@ export default async function handler(req) {
       ],
     }
 
-    // Добавляем file_search для Completion API
+    // 🔧 ИСПРАВЛЕНИЕ: Правильная структура tools для Search Index
     if (YANDEX_VECTOR_STORE_ID) {
       yandexBody.tools = [
         {
-          type: "file_search",
-          file_search: {
-            vector_store_ids: [YANDEX_VECTOR_STORE_ID],
+          type: "search", // <-- ВАЖНО: именно "search", а не "file_search"
+          search: {
+            index_id: YANDEX_VECTOR_STORE_ID,
             max_num_results: 5,
           },
         },
       ]
     }
 
-    console.log("🚀 Sending to Yandex Completion API:", {
-      modelUri: yandexBody.modelUri,
-      hasTools: !!yandexBody.tools,
-      vectorStoreId: YANDEX_VECTOR_STORE_ID,
-    })
+    console.log("🚀 Sending to Yandex:", JSON.stringify(yandexBody, null, 2))
 
-    // 🔥 ИСПОЛЬЗУЕМ COMPLETION ENDPOINT
     const yandexResponse = await fetch(
       "https://llm.api.cloud.yandex.net/foundationModels/v1/completion",
       {
@@ -109,13 +105,13 @@ export default async function handler(req) {
     }
 
     const data = await yandexResponse.json()
-    console.log("✅ Success! Response:", data)
+    console.log("✅ Success! Raw response keys:", Object.keys(data))
 
-    // Извлекаем текст из ответа
+    // Извлекаем текст из стандартного ответа Completion API
     const resultText =
       data.result?.alternatives?.[0]?.message?.text ||
       data.result?.text ||
-      JSON.stringify(data)
+      "Ответ получен, но текст не найден в стандартном поле."
 
     return new Response(
       JSON.stringify({
@@ -127,7 +123,7 @@ export default async function handler(req) {
       },
     )
   } catch (error) {
-    console.error("💥 Error:", error)
+    console.error("💥 Edge Function Error:", error)
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
