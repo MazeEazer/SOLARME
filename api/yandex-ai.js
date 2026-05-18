@@ -31,6 +31,12 @@ export default async function handler(req) {
     const YANDEX_FOLDER_ID = process.env.VITE_YANDEX_FOLDER_ID
     const YANDEX_VECTOR_STORE_ID = process.env.VITE_YANDEX_VECTOR_STORE_ID
 
+    console.log("🔍 ENV CHECK:", {
+      hasKey: !!YANDEX_API_KEY,
+      hasFolder: !!YANDEX_FOLDER_ID,
+      hasVector: !!YANDEX_VECTOR_STORE_ID,
+    })
+
     if (!YANDEX_API_KEY || !YANDEX_FOLDER_ID) {
       return new Response(JSON.stringify({ error: "Credentials missing" }), {
         status: 400,
@@ -38,28 +44,41 @@ export default async function handler(req) {
       })
     }
 
-    // 🔧 ИСПРАВЛЕНИЕ: Используем ПРАВИЛЬНЫЙ формат для Search Index
+    // 🔥 ИСПОЛЬЗУЕМ COMPLETION API с file_search
     const yandexBody = {
       modelUri: `gpt://${YANDEX_FOLDER_ID}/yandexgpt-lite`,
-      input: body.input,
-      instructions: body.instructions,
-      temperature: body.temperature || 0.3,
-      max_output_tokens: body.max_output_tokens || 1000,
-      // 🔥 ПРАВИЛЬНЫЙ ФОРМАТ для поискового индекса
-      retrieval_options: {
-        retrieval_type: "INDEX",
-        index_id: YANDEX_VECTOR_STORE_ID,
-        max_num_results: 5,
+      completionOptions: {
+        temperature: body.temperature || 0.3,
+        maxTokens: body.max_output_tokens || 1000,
       },
+      messages: [
+        { role: "system", text: body.instructions || "" },
+        { role: "user", text: body.input || "" },
+      ],
     }
 
-    console.log("🚀 Sending to Yandex with Search Index:", {
+    // Добавляем file_search для Completion API
+    if (YANDEX_VECTOR_STORE_ID) {
+      yandexBody.tools = [
+        {
+          type: "file_search",
+          file_search: {
+            vector_store_ids: [YANDEX_VECTOR_STORE_ID],
+            max_num_results: 5,
+          },
+        },
+      ]
+    }
+
+    console.log("🚀 Sending to Yandex Completion API:", {
       modelUri: yandexBody.modelUri,
-      indexId: yandexBody.retrieval_options.index_id,
+      hasTools: !!yandexBody.tools,
+      vectorStoreId: YANDEX_VECTOR_STORE_ID,
     })
 
+    // 🔥 ИСПОЛЬЗУЕМ COMPLETION ENDPOINT
     const yandexResponse = await fetch(
-      "https://llm.api.cloud.yandex.net/foundationModels/v1/responses",
+      "https://llm.api.cloud.yandex.net/foundationModels/v1/completion",
       {
         method: "POST",
         headers: {
@@ -71,6 +90,8 @@ export default async function handler(req) {
       },
     )
 
+    console.log("📥 Yandex Response Status:", yandexResponse.status)
+
     if (!yandexResponse.ok) {
       const errorText = await yandexResponse.text()
       console.error("❌ Yandex Error:", yandexResponse.status, errorText)
@@ -78,7 +99,7 @@ export default async function handler(req) {
       return new Response(
         JSON.stringify({
           error: `Yandex API: ${yandexResponse.status}`,
-          details: errorText,
+          details: errorText.slice(0, 500),
         }),
         {
           status: yandexResponse.status,
@@ -88,12 +109,23 @@ export default async function handler(req) {
     }
 
     const data = await yandexResponse.json()
-    console.log("✅ Success!")
+    console.log("✅ Success! Response:", data)
 
-    return new Response(JSON.stringify(data), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    })
+    // Извлекаем текст из ответа
+    const resultText =
+      data.result?.alternatives?.[0]?.message?.text ||
+      data.result?.text ||
+      JSON.stringify(data)
+
+    return new Response(
+      JSON.stringify({
+        output: [{ content: [{ text: resultText }] }],
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    )
   } catch (error) {
     console.error("💥 Error:", error)
     return new Response(JSON.stringify({ error: error.message }), {
