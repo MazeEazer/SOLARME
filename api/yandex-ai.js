@@ -40,37 +40,11 @@ export default async function handler(req) {
       )
     }
 
-    // ✅ ПРАВИЛЬНЫЙ ФОРМАТ для Yandex Foundation Models API
-    const yandexBody = {
-      modelUri: `gpt://${YANDEX_FOLDER_ID}/yandexgpt-lite`,
-      completionOptions: {
-        temperature: body.temperature || 0.3,
-        maxTokens: body.max_output_tokens || 1000,
-      },
-      messages: [
-        {
-          role: "system",
-          text: body.instructions || "",
-        },
-        {
-          role: "user",
-          text: Array.isArray(body.input)
-            ? body.input
-                .map((msg) => msg.content?.[0]?.text || msg.text || "")
-                .join("\n")
-            : body.input || "",
-        },
-      ],
-    }
-
-    // Добавляем RAG инструменты если есть
-    if (body.tools && body.tools.length > 0) {
-      yandexBody.tools = body.tools
-      yandexBody.tool_choice = body.tool_choice || "auto"
-    }
+    // ✅ ПЕРЕДАЁМ body как есть (Responses API формат)
+    // НЕ преобразуем в Completion API формат!
 
     const yandexResponse = await fetch(
-      "https://llm.api.cloud.yandex.net/foundationModels/v1/completion",
+      "https://llm.api.cloud.yandex.net/foundationModels/v1/responses", // ← Responses API!
       {
         method: "POST",
         headers: {
@@ -78,7 +52,7 @@ export default async function handler(req) {
           Authorization: `Api-Key ${YANDEX_API_KEY}`,
           "x-folder-id": YANDEX_FOLDER_ID,
         },
-        body: JSON.stringify(yandexBody),
+        body: JSON.stringify(body), // ← Передаём как есть!
       },
     )
 
