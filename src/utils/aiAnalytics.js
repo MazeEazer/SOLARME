@@ -12,8 +12,7 @@ const YANDEX_FOLDER_ID = import.meta.env.VITE_YANDEX_FOLDER_ID
 const YANDEX_VECTOR_STORE_ID = import.meta.env.VITE_YANDEX_VECTOR_STORE_ID // ID векторного хранилища с файлами
 
 // const YANDEX_AI_URL = "/api/yandex/v1/responses"
-const YANDEX_AI_URL =
-  "https://llm.api.cloud.yandex.net/foundationModels/v1/responses"
+const YANDEX_AI_URL = "/api/yandex-ai"
 const YANDEX_MODEL = "yandexgpt-lite" // или "yandexgpt" для более мощной модели
 
 // ============================================================================
@@ -481,8 +480,7 @@ export const generateAIInsight = async (userData, useRAG = true) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Api-Key ${YANDEX_API_KEY}`,
-        "x-folder-id": YANDEX_FOLDER_ID,
+        // Заголовки авторизации теперь на сервере!
       },
       body: JSON.stringify(requestBody),
     })
