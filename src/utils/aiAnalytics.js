@@ -12,7 +12,8 @@ const YANDEX_FOLDER_ID = import.meta.env.VITE_YANDEX_FOLDER_ID
 const YANDEX_VECTOR_STORE_ID = import.meta.env.VITE_YANDEX_VECTOR_STORE_ID // ID векторного хранилища с файлами
 
 // const YANDEX_AI_URL = "/api/yandex/v1/responses"
-const YANDEX_AI_URL = "../../api/yandex-ai.js"
+const YANDEX_AI_URL =
+  "https://llm.api.cloud.yandex.net/foundationModels/v1/responses"
 const YANDEX_MODEL = "yandexgpt-lite" // или "yandexgpt" для более мощной модели
 
 // ============================================================================
